@@ -89,6 +89,7 @@ func (db *PostgresDB) InsertRecordsToTable(tableName string, records rr.Records)
 		}
 		_, err := tx.Exec(resQuery, s...)
 		if err != nil {
+			tx.Rollback()
 			return fmt.Errorf("exec query: \n%v\nerror: %v", resQuery, err)
 		}
 
