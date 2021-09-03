@@ -16,57 +16,51 @@ type CSVFile struct {
 	fileName string
 	csv      *csv.Reader
 	records  [][]string
-	headers  []string
+	h        []string
 }
 
 func New(fileName string) (*CSVFile, error) {
+	newCSV := CSVFile{}
 	file, err := os.Open(fileName)
 	if err != nil {
-		return nil, fmt.Errorf("open file err: %s", err)
+		return nil, fmt.Errorf("open file err: %w", err)
 	}
 	defer file.Close()
 
 	str, err := bufio.NewReader(file).ReadString('\n')
 	if err != nil {
-		return nil, fmt.Errorf("read file err: %s", err)
+		return nil, fmt.Errorf("read file err: %w", err)
 	}
+	// set offset to the beginning of the file
 	file.Seek(0, 0)
+
 	csv := csv.NewReader(file)
-	csv.Comma = detectComma(str)
+	csv.Comma = newCSV.commaFromLine(str)
 	csv.LazyQuotes = true
 	csv.TrimLeadingSpace = true
 	records, err := csv.ReadAll()
 	if err != nil {
-		return nil, fmt.Errorf("read csv file err: %s", err)
+		return nil, fmt.Errorf("read csv file err: %w", err)
 	}
 	if len(records) < 1 {
 		return nil, fmt.Errorf("file is empty")
 	}
-	headers, generated := headers(records)
+	headers, generated := newCSV.headers(records)
 	if !generated {
 		records = append(records[:0], records[1:]...)
 	}
-	return &CSVFile{
-		// file name without dir and extention
-		fileName: strings.Split(path.Base(fileName), ".")[0],
-		csv:      csv,
-		records:  records,
-		headers:  headers,
-	}, nil
-}
 
-func (c *CSVFile) String() string {
-	var resStr []string
-	resStr = append(resStr, fmt.Sprintf("%v\n", c.headers))
-	for _, str := range c.records {
-		resStr = append(resStr, fmt.Sprintf("%v\n", str))
-	}
-	return fmt.Sprintf("%v", resStr)
+	// file name without dir and extention
+	newCSV.fileName = strings.Split(path.Base(fileName), ".")[0]
+	newCSV.csv = csv
+	newCSV.records = records
+	newCSV.h = headers
+	return &newCSV, nil
 }
 
 func (c *CSVFile) GetRecords() (*rr.Records, error) {
 	return &rr.Records{
-		Headers: c.headers,
+		Headers: c.h,
 		R:       c.records,
 	}, nil
 }
@@ -75,8 +69,17 @@ func (c *CSVFile) FileName() string {
 	return c.fileName
 }
 
-// detectComma is detect comma rune in CSV-file
-func detectComma(s string) rune {
+func (c *CSVFile) String() string {
+	var resStr []string
+	resStr = append(resStr, fmt.Sprintf("%v\n", c.h))
+	for _, str := range c.records {
+		resStr = append(resStr, fmt.Sprintf("%v\n", str))
+	}
+	return fmt.Sprintf("%v", resStr)
+}
+
+// commaFromLine is detect comma rune in CSV-file
+func (*CSVFile) commaFromLine(s string) rune {
 	runes := make(map[rune]int)
 	runes[','] = strings.Count(s, ",")
 	runes[';'] = strings.Count(s, ";")
@@ -100,40 +103,32 @@ func detectComma(s string) rune {
 }
 
 /*
-- определить наличие заголовков
-	- выделить правила определения заголовка
-	- применить это правило для каждого столбца
-	- если правило успешно хотябы для одного из столбцов, то считать что заголовки есть
-
 Файл не имеет заголовка если:
-- Первая строка имеет столбцы, которые не являются строками или пусты
-- В первой строке есть строки которые начинаются пустым символом
-- Столбцы первой строки не все уникальны
 - TODO: Первая строка содержит даты или другие распространенные форматы данных (например, xx-xx-xx)
 */
-func headers(rec [][]string) ([]string, bool) {
+func (c *CSVFile) headers(rec [][]string) ([]string, bool) {
 	set := make(map[string]struct{})
 	for _, col := range rec[0] {
 		set[col] = struct{}{}
 		// если первая строка имеет столбцы, которые не являются строками
 		var i int
 		if _, err := fmt.Sscan(col, &i); err == nil {
-			return makeHeaders(len(rec[0]))
+			return c.makeHeaders(len(rec[0]))
 		}
 		// если первая строка имеет столбцы, которые пусты
 		if col == "" {
-			return makeHeaders(len(rec[0]))
+			return c.makeHeaders(len(rec[0]))
 		}
 	}
 	// если столбцы первой строки не все уникальны
-	if len((set)) != len(rec[0]) {
-		return makeHeaders(len(rec[0]))
+	if len(set) != len(rec[0]) {
+		return c.makeHeaders(len(rec[0]))
 	}
 
 	return rec[0], false
 }
 
-func makeHeaders(len int) ([]string, bool) {
+func (*CSVFile) makeHeaders(len int) ([]string, bool) {
 	var res []string
 	for i := 1; i <= len; i++ {
 		res = append(res, "col"+strconv.Itoa(i))

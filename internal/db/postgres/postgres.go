@@ -36,13 +36,14 @@ func New(ip, port, dbName, user, passwd string) (*PostgresDB, error) {
 		ip, port, user, passwd)
 	db, err := sqlx.Connect("postgres", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("New Error: %v", err)
+		return nil, fmt.Errorf("New Error: %w", err)
 	}
 	db.MustExec(fmt.Sprintf(dbCreate, dbName, dbName))
 	db.Close()
+
 	db, err = sqlx.Connect("postgres", dsn+fmt.Sprintf(" dbname=%s", dbName))
 	if err != nil {
-		return nil, fmt.Errorf("New Error: %v", err)
+		return nil, fmt.Errorf("New Error: %w", err)
 	}
 	return &PostgresDB{
 		db: db,
@@ -57,10 +58,9 @@ func (db *PostgresDB) CreateTable(name string, records rr.Records) error {
 	}
 	fields := strings.Join(columns, ",")
 	query := fmt.Sprintf(cr, strings.Split(name, ".")[0], fields)
-	// fmt.Println(query)
 	_, err := db.db.Exec(query)
 	if err != nil {
-		return fmt.Errorf("exec query: \n%v\nerror: %v", query, err)
+		return fmt.Errorf("exec query: \n%v\nerror: %w", query, err)
 	}
 	return nil
 }
@@ -90,7 +90,7 @@ func (db *PostgresDB) InsertRecordsToTable(tableName string, records rr.Records)
 		_, err := tx.Exec(resQuery, s...)
 		if err != nil {
 			tx.Rollback()
-			return fmt.Errorf("exec query: \n%v\nerror: %v", resQuery, err)
+			return fmt.Errorf("exec query: \n%v\nerror: %w", resQuery, err)
 		}
 
 	}

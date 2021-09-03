@@ -14,10 +14,6 @@ var (
 	inputFile, dbIP, dbPort, dbName, dbLogin, dbPasswd string
 )
 
-/*
-- передать все необходимые параметры
-- создать валидный reader csv
-*/
 func main() {
 	if err := run(); err != nil {
 		panic(err)
@@ -25,28 +21,27 @@ func main() {
 }
 
 func run() error {
-	// прочитать и проанализировать заданный файл (задается имя файла в локальной файловой системе)
 	csvFile, err := csv.New(inputFile)
 	if err != nil {
-		return fmt.Errorf("NewCSVFile error: %v", err)
+		return fmt.Errorf("NewCSVFile error: %w", err)
 	}
-	log.Println("File readed.")
-	// fmt.Printf("%v", csvFile)
-	// подключиться к заданной БД (задается IP адрес, порт, имя БД, логин и пароль пользователя)
+	log.Printf("File %v read successfully\n", inputFile)
+
 	db, err := postgres.New(dbIP, dbPort, dbName, dbLogin, dbPasswd)
 	if err != nil {
-		return fmt.Errorf("postgres database Error: %v", err)
+		return fmt.Errorf("database Error: %w", err)
 	}
-	log.Println("Database inited.")
+	log.Printf("Database %v initialized\n", dbName)
+
 	app, err := app.NewApplication(db, csvFile)
 	if err != nil {
-		return fmt.Errorf("application Error: %v", err)
+		return fmt.Errorf("application initialized Error: %w", err)
 	}
-	log.Println("Application inited.")
+	log.Println("Application initialized")
 
 	if err := app.Do(); err != nil {
-		return fmt.Errorf("app Error: %v", err)
+		return fmt.Errorf("application Error: %w", err)
 	}
-	log.Println("Application Done.")
+	log.Println("Application Done")
 	return nil
 }
