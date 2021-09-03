@@ -13,6 +13,8 @@ import (
 )
 
 var dbCreate string = `
+CREATE EXTENSION IF NOT EXISTS dblink;
+
 DO
 $do$
 BEGIN
